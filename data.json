@@ -1,0 +1,68 @@
+{
+  "columns": [
+    {
+      "id": "backlog",
+      "title": "Backlog",
+      "cards": [
+        {
+          "id": "1",
+          "title": "Contracts",
+          "subcards": [],
+          "assignee": null
+        },
+        {
+          "id": "2",
+          "title": "Payments",
+          "subcards": []
+        },
+        {
+          "id": "4",
+          "title": "AI Briefing",
+          "subcards": []
+        },
+        {
+          "id": "5",
+          "title": "Creatives",
+          "subcards": []
+        }
+      ]
+    },
+    {
+      "id": "this-week",
+      "title": "This Week",
+      "cards": [
+        {
+          "id": "6",
+          "title": "Inbox",
+          "subcards": []
+        }
+      ]
+    },
+    {
+      "id": "in-progress",
+      "title": "In Progress",
+      "cards": [
+        {
+          "id": "3",
+          "title": "Talents Platform",
+          "subcards": []
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "title": "Review",
+      "cards": []
+    },
+    {
+      "id": "shipped",
+      "title": "Shipped",
+      "cards": []
+    },
+    {
+      "id": "validated",
+      "title": "Validated",
+      "cards": []
+    }
+  ]
+}

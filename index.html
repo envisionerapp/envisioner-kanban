@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Envisioner</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFFFFF; display: flex; flex-direction: column; }
+    .header { padding: 16px 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; border-bottom: 1px solid #e0e0e0; flex-shrink: 0; }
+    .board { display: flex; gap: 12px; padding: 16px 24px; flex: 1; overflow-x: auto; overflow-y: hidden; }
+    .column { background: #f5f5f5; border-radius: 8px; min-width: 280px; width: 280px; padding: 12px; display: flex; flex-direction: column; border: 1px solid #e0e0e0; height: 100%; max-height: 100%; }
+    .column-header { font-weight: 600; padding: 8px 4px; color: #141C2E; display: flex; justify-content: space-between; align-items: center; }
+    .column-header span { font-size: 12px; color: #FFFFFF; background: #FF6B35; padding: 2px 8px; border-radius: 10px; }
+    .cards { flex: 1; overflow-y: auto; min-height: 20px; overflow-x: hidden; }
+    .card { background: white; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); cursor: grab; transition: transform 0.1s, box-shadow 0.1s; border-left: 3px solid #FF6B35; width: 100%; max-width: 100%; overflow: hidden; }
+    .card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+    .card.dragging { opacity: 0.5; transform: rotate(3deg); }
+    .card-title { font-size: 14px; color: #141C2E; word-break: break-word; font-weight: 500; }
+    .card-assignee { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: #666; }
+    .card-assignee-avatar { width: 22px; height: 22px; border-radius: 50%; background: #FF6B35; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+    .card-assignee-name { flex: 1; }
+    .card-assignee-input { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; width: 100%; }
+    .card-assignee-input:focus { outline: none; border-color: #FF6B35; }
+    .card-actions { display: flex; gap: 8px; margin-top: 8px; opacity: 0; transition: opacity 0.2s; }
+    .card:hover .card-actions { opacity: 1; }
+    .card-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: #666; padding: 2px 6px; border-radius: 4px; }
+    .card-btn:hover { background: #f0f0f0; color: #141C2E; }
+    .add-card { background: none; border: none; color: #FF6B35; padding: 8px; width: 100%; text-align: left; cursor: pointer; border-radius: 8px; font-size: 14px; margin-top: 8px; font-weight: 500; flex-shrink: 0; }
+    .add-card:hover { background: #fff0eb; }
+    .add-form { background: white; border-radius: 8px; padding: 8px; margin-top: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex-shrink: 0; }
+    .add-form textarea { width: 100%; border: none; resize: none; font-family: inherit; font-size: 14px; padding: 4px; min-height: 60px; color: #141C2E; }
+    .add-form textarea:focus { outline: none; }
+    .add-form-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-add { background: #FF6B35; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500; }
+    .btn-add:hover { background: #e55a2b; }
+    .btn-cancel { background: none; border: none; font-size: 18px; cursor: pointer; color: #666; padding: 4px 8px; }
+    .btn-cancel:hover { color: #141C2E; }
+    .edit-input { width: 100%; border: 2px solid #FF6B35; border-radius: 4px; padding: 8px; font-family: inherit; font-size: 14px; resize: none; color: #141C2E; }
+    /* Login */
+    .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(20,28,46,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .login-box { background: white; padding: 40px; border-radius: 12px; text-align: center; }
+    .login-box input { padding: 12px 16px; font-size: 16px; border: 2px solid #e0e0e0; border-radius: 6px; width: 200px; }
+    .login-box input:focus { outline: none; border-color: #FF6B35; }
+    .login-box button { margin-top: 16px; background: #FF6B35; color: white; border: none; padding: 12px 32px; border-radius: 6px; font-size: 16px; cursor: pointer; }
+    .login-box button:hover { background: #e55a2b; }
+    .login-error { color: #e55a2b; margin-top: 10px; font-size: 14px; }
+    /* Quick Add */
+    .quick-add { display: flex; gap: 8px; align-items: center; background: #f5f5f5; padding: 12px 16px; border-radius: 8px; }
+    .quick-add input { padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; width: 250px; color: #141C2E; }
+    .quick-add input:focus { outline: none; border-color: #FF6B35; }
+    .quick-add select { padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; color: #141C2E; background: white; cursor: pointer; }
+    .quick-add select:focus { outline: none; border-color: #FF6B35; }
+    .quick-add button { padding: 10px 20px; background: #FF6B35; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; }
+    .quick-add button:hover { background: #e55a2b; }
+    /* Subcards */
+    .subcards { margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; }
+    .subcard { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: #141C2E; }
+    .subcard input[type="checkbox"] { accent-color: #FF6B35; cursor: pointer; width: 16px; height: 16px; }
+    .subcard.done span { text-decoration: line-through; color: #999; }
+    .subcard-text { flex: 1; }
+    .subcard-delete { background: none; border: none; color: #ccc; cursor: pointer; font-size: 14px; padding: 0 4px; }
+    .subcard-delete:hover { color: #e55a2b; }
+    .add-subcard { display: flex; gap: 6px; margin-top: 6px; width: 100%; }
+    .add-subcard input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+    .add-subcard input:focus { outline: none; border-color: #FF6B35; }
+    .add-subcard button { padding: 6px 10px; background: #FF6B35; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
+    .subcard-progress { font-size: 11px; color: #888; margin-top: 6px; }
+    .subcard-progress-bar { height: 4px; background: #eee; border-radius: 2px; margin-top: 4px; overflow: hidden; }
+    .subcard-progress-fill { height: 100%; background: #FF6B35; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+  <div class="login-overlay" id="login">
+    <div class="login-box">
+      <img src="https://envisioner.io/assets/envisioner-logo-CdGQfNFv.svg" alt="Logo" style="height:36px;margin-bottom:10px">
+      <input type="password" id="password" placeholder="Enter password" onkeydown="if(event.key==='Enter')checkPass()">
+      <br>
+      <button onclick="checkPass()">Enter</button>
+      <div class="login-error" id="login-error"></div>
+    </div>
+  </div>
+
+  <div class="header">
+    <img src="https://envisioner.io/assets/envisioner-logo-CdGQfNFv.svg" alt="Logo" style="height:40px">
+    <div class="quick-add">
+      <input type="text" id="quick-title" placeholder="Card title..." onkeydown="if(event.key==='Enter')quickAdd()">
+      <select id="quick-column"></select>
+      <button onclick="quickAdd()">+ Add</button>
+    </div>
+  </div>
+  <div class="board" id="board"></div>
+
+  <script>
+    const PASSWORD = 'kaban2024';
+
+    function checkPass() {
+      const input = document.getElementById('password').value;
+      if (input === PASSWORD) {
+        document.getElementById('login').style.display = 'none';
+        sessionStorage.setItem('auth', 'true');
+      } else {
+        document.getElementById('login-error').textContent = 'Wrong password';
+      }
+    }
+
+    if (sessionStorage.getItem('auth') === 'true') {
+      document.getElementById('login').style.display = 'none';
+    }
+
+    let data = { columns: [] };
+    let draggedCard = null;
+    let draggedFromColumn = null;
+
+    async function load() {
+      const res = await fetch('/api/data');
+      data = await res.json();
+      render();
+      updateColumnSelect();
+    }
+
+    // Live sync - poll every 2 seconds
+    let lastDataStr = '';
+    async function poll() {
+      try {
+        const res = await fetch('/api/data');
+        const newData = await res.json();
+        const newStr = JSON.stringify(newData);
+        if (newStr !== lastDataStr) {
+          lastDataStr = newStr;
+          data = newData;
+          render();
+        }
+      } catch (e) {}
+    }
+    setInterval(poll, 2000);
+
+    function updateColumnSelect() {
+      const select = document.getElementById('quick-column');
+      select.innerHTML = data.columns.map(col =>
+        `<option value="${col.id}">${col.title}</option>`
+      ).join('');
+    }
+
+    async function quickAdd() {
+      const input = document.getElementById('quick-title');
+      const select = document.getElementById('quick-column');
+      const title = input.value.trim();
+      if (!title) return;
+      const col = data.columns.find(c => c.id === select.value);
+      if (col) {
+        col.cards.push({ id: Date.now().toString(), title, subcards: [] });
+        await save();
+        render();
+        input.value = '';
+        input.focus();
+      }
+    }
+
+    async function save() {
+      lastDataStr = JSON.stringify(data);
+      await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    }
+
+    function getInitials(name) {
+      if (!name) return '?';
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    function renderAssignee(card, colId) {
+      if (!card.assignee) {
+        return '';
+      }
+      return `<div class="card-assignee">
+        <div class="card-assignee-avatar">${getInitials(card.assignee)}</div>
+        <span class="card-assignee-name">${escapeHtml(card.assignee)}</span>
+      </div>`;
+    }
+
+    function assignCard(colId, cardId) {
+      const col = data.columns.find(c => c.id === colId);
+      const card = col.cards.find(c => c.id === cardId);
+      const cardEl = document.querySelector(`[data-card="${cardId}"]`);
+
+      // Find or create assignee area
+      let assigneeEl = cardEl.querySelector('.card-assignee');
+      if (!assigneeEl) {
+        assigneeEl = document.createElement('div');
+        assigneeEl.className = 'card-assignee';
+        cardEl.querySelector('.card-title').after(assigneeEl);
+      }
+
+      assigneeEl.innerHTML = `<input type="text" class="card-assignee-input" placeholder="Enter name..." value="${card.assignee || ''}" id="assignee-${cardId}">`;
+      const input = assigneeEl.querySelector('input');
+      input.focus();
+      input.select();
+
+      const saveAssignee = async () => {
+        const name = input.value.trim();
+        card.assignee = name || null;
+        await save();
+        render();
+      };
+
+      input.onblur = saveAssignee;
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); saveAssignee(); }
+        if (e.key === 'Escape') render();
+      };
+    }
+
+    function renderSubcards(card, colId) {
+      if (!card.subcards) card.subcards = [];
+      const done = card.subcards.filter(s => s.done).length;
+      const total = card.subcards.length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      if (total === 0) {
+        return `<div class="add-subcard">
+          <input type="text" placeholder="Add subtask..." id="subinput-${card.id}" onkeydown="if(event.key==='Enter')addSubcard('${colId}','${card.id}')">
+          <button onclick="addSubcard('${colId}','${card.id}')">+</button>
+        </div>`;
+      }
+
+      return `
+        <div class="subcards">
+          ${card.subcards.map((sub, idx) => `
+            <div class="subcard ${sub.done ? 'done' : ''}">
+              <input type="checkbox" ${sub.done ? 'checked' : ''} onchange="toggleSubcard('${colId}','${card.id}',${idx})">
+              <span class="subcard-text">${escapeHtml(sub.title)}</span>
+              <button class="subcard-delete" onclick="deleteSubcard('${colId}','${card.id}',${idx})">✕</button>
+            </div>
+          `).join('')}
+          <div class="subcard-progress">${done}/${total} complete</div>
+          <div class="subcard-progress-bar"><div class="subcard-progress-fill" style="width:${pct}%"></div></div>
+          <div class="add-subcard">
+            <input type="text" placeholder="Add subtask..." id="subinput-${card.id}" onkeydown="if(event.key==='Enter')addSubcard('${colId}','${card.id}')">
+            <button onclick="addSubcard('${colId}','${card.id}')">+</button>
+          </div>
+        </div>`;
+    }
+
+    function render() {
+      const board = document.getElementById('board');
+      board.innerHTML = data.columns.map(col => `
+        <div class="column" data-column="${col.id}">
+          <div class="column-header">
+            ${col.title}
+            <span>${col.cards.length}</span>
+          </div>
+          <div class="cards" data-column="${col.id}">
+            ${col.cards.map(card => `
+              <div class="card" draggable="true" data-card="${card.id}">
+                <div class="card-title">${escapeHtml(card.title)}</div>
+                ${renderAssignee(card, col.id)}
+                <div class="card-actions">
+                  <button class="card-btn" onclick="editCard('${col.id}', '${card.id}')">✎ Edit</button>
+                  <button class="card-btn" onclick="assignCard('${col.id}', '${card.id}')">👤 Assign</button>
+                  <button class="card-btn" onclick="deleteCard('${col.id}', '${card.id}')">✕ Delete</button>
+                </div>
+                ${renderSubcards(card, col.id)}
+              </div>
+            `).join('')}
+          </div>
+          <button class="add-card" onclick="showAddForm('${col.id}')">+ Add card</button>
+          <div class="add-form" id="form-${col.id}" style="display:none">
+            <textarea placeholder="Enter card title..." id="input-${col.id}"></textarea>
+            <div class="add-form-actions">
+              <button class="btn-add" onclick="addCard('${col.id}')">Add</button>
+              <button class="btn-cancel" onclick="hideAddForm('${col.id}')">✕</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      attachDragListeners();
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showAddForm(colId) {
+      document.getElementById(`form-${colId}`).style.display = 'block';
+      document.getElementById(`input-${colId}`).focus();
+    }
+
+    function hideAddForm(colId) {
+      document.getElementById(`form-${colId}`).style.display = 'none';
+      document.getElementById(`input-${colId}`).value = '';
+    }
+
+    async function addCard(colId) {
+      const input = document.getElementById(`input-${colId}`);
+      const title = input.value.trim();
+      if (!title) return;
+      const col = data.columns.find(c => c.id === colId);
+      col.cards.push({ id: Date.now().toString(), title, subcards: [] });
+      await save();
+      render();
+      hideAddForm(colId);
+    }
+
+    async function deleteCard(colId, cardId) {
+      const col = data.columns.find(c => c.id === colId);
+      col.cards = col.cards.filter(c => c.id !== cardId);
+      await save();
+      render();
+    }
+
+    function editCard(colId, cardId) {
+      const col = data.columns.find(c => c.id === colId);
+      const card = col.cards.find(c => c.id === cardId);
+      const cardEl = document.querySelector(`[data-card="${cardId}"]`);
+      const titleEl = cardEl.querySelector('.card-title');
+      const currentTitle = card.title;
+
+      titleEl.innerHTML = `<textarea class="edit-input">${escapeHtml(currentTitle)}</textarea>`;
+      const textarea = titleEl.querySelector('textarea');
+      textarea.focus();
+      textarea.select();
+
+      const saveEdit = async () => {
+        const newTitle = textarea.value.trim();
+        if (newTitle && newTitle !== currentTitle) {
+          card.title = newTitle;
+          await save();
+        }
+        render();
+      };
+
+      textarea.onblur = saveEdit;
+      textarea.onkeydown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); }
+        if (e.key === 'Escape') render();
+      };
+    }
+
+    // Subcard functions
+    async function addSubcard(colId, cardId) {
+      const input = document.getElementById(`subinput-${cardId}`);
+      const title = input.value.trim();
+      if (!title) return;
+      const col = data.columns.find(c => c.id === colId);
+      const card = col.cards.find(c => c.id === cardId);
+      if (!card.subcards) card.subcards = [];
+      card.subcards.push({ title, done: false });
+      await save();
+      render();
+    }
+
+    async function toggleSubcard(colId, cardId, idx) {
+      const col = data.columns.find(c => c.id === colId);
+      const card = col.cards.find(c => c.id === cardId);
+      card.subcards[idx].done = !card.subcards[idx].done;
+      await save();
+      render();
+    }
+
+    async function deleteSubcard(colId, cardId, idx) {
+      const col = data.columns.find(c => c.id === colId);
+      const card = col.cards.find(c => c.id === cardId);
+      card.subcards.splice(idx, 1);
+      await save();
+      render();
+    }
+
+    function attachDragListeners() {
+      document.querySelectorAll('.card').forEach(card => {
+        card.ondragstart = (e) => {
+          draggedCard = card.dataset.card;
+          draggedFromColumn = card.closest('.cards').dataset.column;
+          card.classList.add('dragging');
+        };
+        card.ondragend = () => {
+          card.classList.remove('dragging');
+          draggedCard = null;
+          draggedFromColumn = null;
+        };
+      });
+
+      document.querySelectorAll('.cards').forEach(container => {
+        container.ondragover = (e) => { e.preventDefault(); };
+        container.ondrop = async (e) => {
+          e.preventDefault();
+          if (!draggedCard) return;
+          const toColumn = container.dataset.column;
+          const fromCol = data.columns.find(c => c.id === draggedFromColumn);
+          const toCol = data.columns.find(c => c.id === toColumn);
+          const cardIndex = fromCol.cards.findIndex(c => c.id === draggedCard);
+          const [card] = fromCol.cards.splice(cardIndex, 1);
+          toCol.cards.push(card);
+          await save();
+          render();
+        };
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>
