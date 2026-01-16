@@ -87,6 +87,19 @@
     .log-entry-author { font-weight: 600; color: #141C2E; font-size: 13px; }
     .log-entry-time { font-size: 11px; color: #888; }
     .log-entry-content { font-size: 13px; color: #333; line-height: 1.5; white-space: pre-wrap; }
+    .log-entry-actions { display: flex; gap: 12px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; }
+    .log-entry-btn { background: none; border: none; font-size: 12px; color: #888; cursor: pointer; padding: 0; }
+    .log-entry-btn:hover { color: #FF6B35; }
+    .log-comments { margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; }
+    .log-comment { background: #f5f5f5; padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; }
+    .log-comment-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .log-comment-author { font-weight: 600; color: #141C2E; }
+    .log-comment-time { color: #888; font-size: 11px; }
+    .log-comment-text { color: #333; }
+    .log-comment-form { display: flex; gap: 6px; margin-top: 6px; }
+    .log-comment-form input { flex: 1; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+    .log-comment-form input:focus { outline: none; border-color: #FF6B35; }
+    .log-comment-form button { padding: 6px 10px; background: #FF6B35; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -187,14 +200,67 @@
         return;
       }
       container.innerHTML = data.logs.slice().reverse().map(log => `
-        <div class="log-entry">
+        <div class="log-entry" data-log="${log.id}">
           <div class="log-entry-header">
             <span class="log-entry-author">${escapeHtml(log.author)}</span>
             <span class="log-entry-time">${formatTime(log.timestamp)}</span>
           </div>
           <div class="log-entry-content">${escapeHtml(log.content)}</div>
+          <div class="log-entry-actions">
+            <button class="log-entry-btn" onclick="toggleCommentForm('${log.id}')">💬 Comment</button>
+            <button class="log-entry-btn" onclick="deleteLog('${log.id}')">🗑 Delete</button>
+          </div>
+          ${renderComments(log)}
+          <div class="log-comment-form" id="comment-form-${log.id}" style="display:none">
+            <input type="text" placeholder="Add comment..." id="comment-input-${log.id}" onkeydown="if(event.key==='Enter')addComment('${log.id}')">
+            <button onclick="addComment('${log.id}')">Reply</button>
+          </div>
         </div>
       `).join('');
+    }
+
+    function renderComments(log) {
+      if (!log.comments || log.comments.length === 0) return '';
+      return `<div class="log-comments">
+        ${log.comments.map(c => `
+          <div class="log-comment">
+            <div class="log-comment-header">
+              <span class="log-comment-author">${escapeHtml(c.author)}</span>
+              <span class="log-comment-time">${formatTime(c.timestamp)}</span>
+            </div>
+            <div class="log-comment-text">${escapeHtml(c.text)}</div>
+          </div>
+        `).join('')}
+      </div>`;
+    }
+
+    function toggleCommentForm(logId) {
+      const form = document.getElementById(`comment-form-${logId}`);
+      form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+      if (form.style.display === 'flex') {
+        document.getElementById(`comment-input-${logId}`).focus();
+      }
+    }
+
+    async function addComment(logId) {
+      const input = document.getElementById(`comment-input-${logId}`);
+      const text = input.value.trim();
+      const author = document.getElementById('log-author').value.trim() || 'Anonymous';
+      if (!text) return;
+
+      const log = data.logs.find(l => l.id === logId);
+      if (!log.comments) log.comments = [];
+      log.comments.push({ author, text, timestamp: Date.now() });
+
+      await save();
+      renderLogs();
+    }
+
+    async function deleteLog(logId) {
+      if (!confirm('Delete this update?')) return;
+      data.logs = data.logs.filter(l => l.id !== logId);
+      await save();
+      renderLogs();
     }
 
     async function addLogEntry() {
