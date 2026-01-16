@@ -3,21 +3,21 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = process.env.NODE_ENV === 'production' ? '/data' : __dirname;
-const DATA_FILE = path.join(DATA_DIR, 'data.json');
+const DATA_FILE = path.join(__dirname, 'data.json');
 
 // Initialize data file if it doesn't exist
+const defaultData = {
+  columns: [
+    { id: 'backlog', title: 'Backlog', cards: [] },
+    { id: 'this-week', title: 'This Week', cards: [] },
+    { id: 'in-progress', title: 'In Progress', cards: [] },
+    { id: 'review', title: 'Review', cards: [] },
+    { id: 'shipped', title: 'Shipped', cards: [] },
+    { id: 'validated', title: 'Validated', cards: [] }
+  ]
+};
+
 if (!fs.existsSync(DATA_FILE)) {
-  const defaultData = {
-    columns: [
-      { id: 'backlog', title: 'Backlog', cards: [] },
-      { id: 'this-week', title: 'This Week', cards: [] },
-      { id: 'in-progress', title: 'In Progress', cards: [] },
-      { id: 'review', title: 'Review', cards: [] },
-      { id: 'shipped', title: 'Shipped', cards: [] },
-      { id: 'validated', title: 'Validated', cards: [] }
-    ]
-  };
   fs.writeFileSync(DATA_FILE, JSON.stringify(defaultData, null, 2));
 }
 

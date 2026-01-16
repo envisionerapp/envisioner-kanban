@@ -4,10 +4,3 @@ services:
     runtime: node
     buildCommand: ""
     startCommand: node server.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-    disk:
-      name: data
-      mountPath: /data
-      sizeGB: 1
