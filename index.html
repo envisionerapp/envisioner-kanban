@@ -113,6 +113,7 @@
     </div>
   </div>
 
+  <div class="app-content" id="app-content" style="display:none;flex-direction:column;flex:1">
   <div class="header">
     <img src="https://envisioner.io/assets/envisioner-logo-CdGQfNFv.svg" alt="Logo" style="height:40px">
     <div class="quick-add">
@@ -133,6 +134,7 @@
       <div class="log-entries" id="log-entries"></div>
     </div>
   </div>
+  </div>
 
   <script>
     const PASSWORD = 'kaban2024';
@@ -141,6 +143,7 @@
       const input = document.getElementById('password').value;
       if (input === PASSWORD) {
         document.getElementById('login').style.display = 'none';
+        document.getElementById('app-content').style.display = 'flex';
         sessionStorage.setItem('auth', 'true');
       } else {
         document.getElementById('login-error').textContent = 'Wrong password';
@@ -149,6 +152,7 @@
 
     if (sessionStorage.getItem('auth') === 'true') {
       document.getElementById('login').style.display = 'none';
+      document.getElementById('app-content').style.display = 'flex';
     }
 
     let data = { columns: [] };
@@ -305,8 +309,10 @@
       const col = data.columns.find(c => c.id === select.value);
       if (col) {
         col.cards.push({ id: Date.now().toString(), title, subcards: [] });
+        addSystemLog(`Created card "${title}" in ${col.title}`);
         await save();
         render();
+        renderLogs();
         input.value = '';
         input.focus();
       }
@@ -318,6 +324,18 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
+      });
+    }
+
+    function addSystemLog(message) {
+      if (!data.logs) data.logs = [];
+      const author = document.getElementById('log-author')?.value?.trim() || 'System';
+      data.logs.push({
+        id: Date.now().toString(),
+        author: '🤖 ' + author,
+        content: message,
+        timestamp: Date.now(),
+        isSystem: true
       });
     }
 
@@ -456,16 +474,21 @@
       if (!title) return;
       const col = data.columns.find(c => c.id === colId);
       col.cards.push({ id: Date.now().toString(), title, subcards: [] });
+      addSystemLog(`Created card "${title}" in ${col.title}`);
       await save();
       render();
+      renderLogs();
       hideAddForm(colId);
     }
 
     async function deleteCard(colId, cardId) {
       const col = data.columns.find(c => c.id === colId);
+      const card = col.cards.find(c => c.id === cardId);
       col.cards = col.cards.filter(c => c.id !== cardId);
+      addSystemLog(`Deleted card "${card.title}" from ${col.title}`);
       await save();
       render();
+      renderLogs();
     }
 
     function editCard(colId, cardId) {
@@ -545,13 +568,16 @@
           e.preventDefault();
           if (!draggedCard) return;
           const toColumn = container.dataset.column;
+          if (toColumn === draggedFromColumn) return;
           const fromCol = data.columns.find(c => c.id === draggedFromColumn);
           const toCol = data.columns.find(c => c.id === toColumn);
           const cardIndex = fromCol.cards.findIndex(c => c.id === draggedCard);
           const [card] = fromCol.cards.splice(cardIndex, 1);
           toCol.cards.push(card);
+          addSystemLog(`Moved "${card.title}" from ${fromCol.title} → ${toCol.title}`);
           await save();
           render();
+          renderLogs();
         };
       });
     }
