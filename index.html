@@ -56,12 +56,16 @@
     .quick-add button:hover { background: #e55a2b; }
     /* Subcards */
     .subcards { margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; }
-    .subcard { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: #141C2E; }
+    .subcard { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: #141C2E; cursor: grab; border-radius: 4px; transition: background 0.2s; }
+    .subcard:hover { background: #f0f0f0; }
+    .subcard.dragging { opacity: 0.5; }
     .subcard input[type="checkbox"] { accent-color: #FF6B35; cursor: pointer; width: 16px; height: 16px; }
     .subcard.done span { text-decoration: line-through; color: #999; }
     .subcard-text { flex: 1; }
     .subcard-delete { background: none; border: none; color: #ccc; cursor: pointer; font-size: 14px; padding: 0 4px; }
     .subcard-delete:hover { color: #e55a2b; }
+    .card.drop-target { outline: 2px dashed #FF6B35; outline-offset: 2px; }
+    .card.drop-target-subtask { background: #fff0eb; }
     .add-subcard { display: flex; gap: 6px; margin-top: 6px; width: 100%; }
     .add-subcard input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
     .add-subcard input:focus { outline: none; border-color: #FF6B35; }
@@ -158,6 +162,9 @@
     let data = { columns: [] };
     let draggedCard = null;
     let draggedFromColumn = null;
+    let draggedSubcard = null;
+    let draggedSubcardParent = null;
+    let draggedSubcardCol = null;
 
     async function load() {
       const res = await fetch('/api/data');
@@ -403,7 +410,7 @@
       return `
         <div class="subcards">
           ${card.subcards.map((sub, idx) => `
-            <div class="subcard ${sub.done ? 'done' : ''}">
+            <div class="subcard ${sub.done ? 'done' : ''}" draggable="true" data-subcard="${idx}" data-parent-card="${card.id}" data-parent-col="${colId}">
               <input type="checkbox" ${sub.done ? 'checked' : ''} onchange="toggleSubcard('${colId}','${card.id}',${idx})">
               <span class="subcard-text">${escapeHtml(sub.title)}</span>
               <button class="subcard-delete" onclick="deleteSubcard('${colId}','${card.id}',${idx})">✕</button>
@@ -551,35 +558,126 @@
     }
 
     function attachDragListeners() {
+      // Card drag
       document.querySelectorAll('.card').forEach(card => {
         card.ondragstart = (e) => {
+          e.stopPropagation();
           draggedCard = card.dataset.card;
           draggedFromColumn = card.closest('.cards').dataset.column;
+          draggedSubcard = null;
           card.classList.add('dragging');
         };
         card.ondragend = () => {
           card.classList.remove('dragging');
+          document.querySelectorAll('.drop-target-subtask').forEach(el => el.classList.remove('drop-target-subtask'));
           draggedCard = null;
           draggedFromColumn = null;
         };
+        // Card as drop target for other cards/subcards (to become subtask)
+        card.ondragover = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (draggedCard && draggedCard !== card.dataset.card) {
+            card.classList.add('drop-target-subtask');
+          }
+          if (draggedSubcard !== null) {
+            card.classList.add('drop-target-subtask');
+          }
+        };
+        card.ondragleave = (e) => {
+          card.classList.remove('drop-target-subtask');
+        };
+        card.ondrop = async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          card.classList.remove('drop-target-subtask');
+          const targetCardId = card.dataset.card;
+          const targetColId = card.closest('.cards').dataset.column;
+          const targetCol = data.columns.find(c => c.id === targetColId);
+          const targetCard = targetCol.cards.find(c => c.id === targetCardId);
+
+          // Card dropped on card = becomes subtask
+          if (draggedCard && draggedCard !== targetCardId) {
+            const fromCol = data.columns.find(c => c.id === draggedFromColumn);
+            const cardIndex = fromCol.cards.findIndex(c => c.id === draggedCard);
+            const [movedCard] = fromCol.cards.splice(cardIndex, 1);
+            if (!targetCard.subcards) targetCard.subcards = [];
+            targetCard.subcards.push({ title: movedCard.title, done: false });
+            addSystemLog(`Converted "${movedCard.title}" to subtask of "${targetCard.title}"`);
+            await save();
+            render();
+            renderLogs();
+            return;
+          }
+
+          // Subcard dropped on different card = move subtask
+          if (draggedSubcard !== null && draggedSubcardParent !== targetCardId) {
+            const srcCol = data.columns.find(c => c.id === draggedSubcardCol);
+            const srcCard = srcCol.cards.find(c => c.id === draggedSubcardParent);
+            const [subcard] = srcCard.subcards.splice(draggedSubcard, 1);
+            if (!targetCard.subcards) targetCard.subcards = [];
+            targetCard.subcards.push(subcard);
+            addSystemLog(`Moved subtask "${subcard.title}" to "${targetCard.title}"`);
+            await save();
+            render();
+            renderLogs();
+          }
+        };
       });
 
+      // Subcard drag
+      document.querySelectorAll('.subcard').forEach(subcard => {
+        subcard.ondragstart = (e) => {
+          e.stopPropagation();
+          draggedSubcard = parseInt(subcard.dataset.subcard);
+          draggedSubcardParent = subcard.dataset.parentCard;
+          draggedSubcardCol = subcard.dataset.parentCol;
+          draggedCard = null;
+          subcard.classList.add('dragging');
+        };
+        subcard.ondragend = () => {
+          subcard.classList.remove('dragging');
+          document.querySelectorAll('.drop-target-subtask').forEach(el => el.classList.remove('drop-target-subtask'));
+          draggedSubcard = null;
+          draggedSubcardParent = null;
+          draggedSubcardCol = null;
+        };
+      });
+
+      // Column drop zones
       document.querySelectorAll('.cards').forEach(container => {
         container.ondragover = (e) => { e.preventDefault(); };
         container.ondrop = async (e) => {
           e.preventDefault();
-          if (!draggedCard) return;
           const toColumn = container.dataset.column;
-          if (toColumn === draggedFromColumn) return;
-          const fromCol = data.columns.find(c => c.id === draggedFromColumn);
           const toCol = data.columns.find(c => c.id === toColumn);
-          const cardIndex = fromCol.cards.findIndex(c => c.id === draggedCard);
-          const [card] = fromCol.cards.splice(cardIndex, 1);
-          toCol.cards.push(card);
-          addSystemLog(`Moved "${card.title}" from ${fromCol.title} → ${toCol.title}`);
-          await save();
-          render();
-          renderLogs();
+
+          // Card dropped on column
+          if (draggedCard) {
+            if (toColumn === draggedFromColumn) return;
+            const fromCol = data.columns.find(c => c.id === draggedFromColumn);
+            const cardIndex = fromCol.cards.findIndex(c => c.id === draggedCard);
+            const [card] = fromCol.cards.splice(cardIndex, 1);
+            toCol.cards.push(card);
+            addSystemLog(`Moved "${card.title}" from ${fromCol.title} → ${toCol.title}`);
+            await save();
+            render();
+            renderLogs();
+            return;
+          }
+
+          // Subcard dropped on column = promote to card
+          if (draggedSubcard !== null) {
+            const srcCol = data.columns.find(c => c.id === draggedSubcardCol);
+            const srcCard = srcCol.cards.find(c => c.id === draggedSubcardParent);
+            const [subcard] = srcCard.subcards.splice(draggedSubcard, 1);
+            const newCard = { id: Date.now().toString(), title: subcard.title, subcards: [] };
+            toCol.cards.push(newCard);
+            addSystemLog(`Promoted subtask "${subcard.title}" to card in ${toCol.title}`);
+            await save();
+            render();
+            renderLogs();
+          }
         };
       });
     }
