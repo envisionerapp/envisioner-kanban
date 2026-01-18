@@ -596,14 +596,21 @@
           const targetCol = data.columns.find(c => c.id === targetColId);
           const targetCard = targetCol.cards.find(c => c.id === targetCardId);
 
-          // Card dropped on card = becomes subtask
+          // Card dropped on card = becomes subtask (with its subtasks)
           if (draggedCard && draggedCard !== targetCardId) {
             const fromCol = data.columns.find(c => c.id === draggedFromColumn);
             const cardIndex = fromCol.cards.findIndex(c => c.id === draggedCard);
             const [movedCard] = fromCol.cards.splice(cardIndex, 1);
             if (!targetCard.subcards) targetCard.subcards = [];
+            // Add the card itself as subtask
             targetCard.subcards.push({ title: movedCard.title, done: false });
-            addSystemLog(`Converted "${movedCard.title}" to subtask of "${targetCard.title}"`);
+            // Also add any subtasks the card had
+            if (movedCard.subcards && movedCard.subcards.length > 0) {
+              movedCard.subcards.forEach(sub => targetCard.subcards.push(sub));
+              addSystemLog(`Converted "${movedCard.title}" + ${movedCard.subcards.length} subtasks to "${targetCard.title}"`);
+            } else {
+              addSystemLog(`Converted "${movedCard.title}" to subtask of "${targetCard.title}"`);
+            }
             await save();
             render();
             renderLogs();
