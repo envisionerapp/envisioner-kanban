@@ -371,6 +371,7 @@
       const input = assigneeEl.querySelector('input');
       input.focus();
       input.select();
+      cardEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 
       const saveAssignee = async () => {
         const name = input.value.trim();
@@ -502,6 +503,7 @@
       const textarea = titleEl.querySelector('textarea');
       textarea.focus();
       textarea.select();
+      cardEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 
       const saveEdit = async () => {
         const newTitle = textarea.value.trim();
