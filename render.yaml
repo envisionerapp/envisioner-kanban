@@ -2,5 +2,8 @@ services:
   - type: web
     name: envisioner-kanban
     runtime: node
-    buildCommand: ""
+    buildCommand: "npm install"
     startCommand: node server.js
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_8hk3uiJIEepv@ep-bitter-mud-ad04afp5-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require
